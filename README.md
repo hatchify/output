@@ -1,5 +1,5 @@
 # Output
-Output is an output logger a few simple features:
+Output is an output logger helper library a few simple features:
 	- Thread-safe
 	- Colored dot prefix for status (success, warning, error)
 	- Debug output (with filename and line number)
