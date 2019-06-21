@@ -31,6 +31,11 @@ func Printf(format string, values ...interface{}) {
 	logger.Printf(format, values...)
 }
 
+// Notification will output a notification message
+func Notification(format string, values ...interface{}) {
+	logger.Notification(format, values...)
+}
+
 // Success will output a success message
 func Success(format string, values ...interface{}) {
 	logger.Success(format, values...)

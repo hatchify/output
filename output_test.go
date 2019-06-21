@@ -18,6 +18,10 @@ func ExamplePrintf() {
 	Printf("Hello world! My name is %s.", "Loggy")
 }
 
+func ExampleNotification() {
+	Notification("Hello world! My name is %s.", "Loggy")
+}
+
 func ExampleSuccess() {
 	Success("Hello world! My name is %s.", "Loggy")
 }

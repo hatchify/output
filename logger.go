@@ -48,6 +48,11 @@ func (l *Logger) Printf(format string, values ...interface{}) {
 	l.Print(msg)
 }
 
+// Notification will output a notification message
+func (l *Logger) Notification(format string, values ...interface{}) {
+	l.Printf(dot+format, values...)
+}
+
 // Success will output a success message
 func (l *Logger) Success(format string, values ...interface{}) {
 	l.Printf(greenDot+format, values...)

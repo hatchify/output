@@ -28,6 +28,10 @@ func ExampleLogger_Printf() {
 	testLogger.Printf("Hello world! My name is %s.", "Loggy")
 }
 
+func ExampleLogger_Notification() {
+	testLogger.Notification("Hello world! My name is %s.", "Loggy")
+}
+
 func ExampleLogger_Success() {
 	testLogger.Success("Hello world! My name is %s.", "Loggy")
 }
