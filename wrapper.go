@@ -2,17 +2,14 @@ package output
 
 // NewWrapper will return a new wrapper with the default logger
 func NewWrapper(prefix string) *Wrapper {
-	var w Wrapper
-	w.o = logger
-	w.prefix = prefix
-	return &w
+	return NewWrapperWithOutputter(logger, prefix)
 }
 
 // NewWrapperWithOutputter will return a new wrapper with a custom outputter
 func NewWrapperWithOutputter(o Outputter, prefix string) *Wrapper {
 	var w Wrapper
 	w.o = o
-	w.prefix = prefix
+	w.prefix = prefix + " :: "
 	return &w
 }
 
