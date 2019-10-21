@@ -4,9 +4,11 @@ Output is an output logger helper library a few simple features:
 * Thread-safe
 * Debug output (with filename and line number)
 
-![screenshot](https://github.com/hatchify/output/blob/master/screenshot.png?raw=true "Screenshot of output")
+![screenshot](screenshot.png "Screenshot of output")
 
 ## Hooks
+
+### Debug
 
 ### Metrics
 

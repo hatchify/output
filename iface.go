@@ -64,7 +64,6 @@ type Outputter interface {
 
 	SetFormatter(formatter Formatter)
 	SetOutput(output io.Writer)
-	SetReportCaller(reportCaller bool)
 	SetLevel(level Level)
 	GetLevel() Level
 	IsLevelEnabled(level Level) bool

@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	debugHook "github.com/hatchify/output/hooks/debug"
 	"github.com/sirupsen/logrus"
 	"github.com/xlab/closer"
 )
@@ -18,12 +19,11 @@ func NewOutputter(wc io.Writer, formatter Formatter, hooks ...Hook) Outputter {
 	}
 	out := &outputter{
 		Logger: &logrus.Logger{
-			Out:          wc,
-			ReportCaller: false,
-			Formatter:    formatter,
-			Hooks:        make(LevelHooks),
-			Level:        DebugLevel,
-			ExitFunc:     closer.Exit,
+			Out:       wc,
+			Formatter: formatter,
+			Hooks:     make(LevelHooks),
+			Level:     DebugLevel,
+			ExitFunc:  closer.Exit,
 		},
 
 		wc:       wc,
@@ -42,10 +42,9 @@ type outputter struct {
 	mux *sync.Mutex
 	wc  io.Writer
 
-	init         sync.Once
-	initDone     bool
-	reportCaller bool
-	closed       bool
+	init     sync.Once
+	initDone bool
+	closed   bool
 }
 
 func (out *outputter) initOnce() {
@@ -59,14 +58,15 @@ func (out *outputter) initOnce() {
 		}
 		// otherwise init output with conservative defaults
 		out.Logger = &logrus.Logger{
-			Out:          out.wc,
-			ReportCaller: out.reportCaller,
-			Formatter:    new(TextFormatter),
-			Hooks:        make(LevelHooks),
-			Level:        DebugLevel,
-			ExitFunc:     closer.Exit,
+			Out:       out.wc,
+			Formatter: new(TextFormatter),
+			Hooks:     make(LevelHooks),
+			Level:     DebugLevel,
+			ExitFunc:  closer.Exit,
 		}
-		// out.Logger.AddHook()
+		out.Logger.AddHook(debugHook.NewHook(&debugHook.HookOptions{
+			FramesOffset: 12,
+		}))
 		out.mux = new(sync.Mutex)
 		out.initDone = true
 	})
@@ -117,14 +117,6 @@ func (out *outputter) Tracef(format string, args ...interface{}) {
 
 func (out *outputter) Debugf(format string, args ...interface{}) {
 	out.initOnce()
-
-	out.mux.Lock()
-	defer out.mux.Unlock()
-	// always use report caller on debug calls
-	// pro tip: may change formatter as well
-	out.Logger.SetReportCaller(true)
-	defer out.Logger.SetReportCaller(out.reportCaller)
-
 	out.Logf(DebugLevel, format, args...)
 }
 
@@ -189,14 +181,6 @@ func (out *outputter) Traceln(args ...interface{}) {
 
 func (out *outputter) Debugln(args ...interface{}) {
 	out.initOnce()
-
-	out.mux.Lock()
-	defer out.mux.Unlock()
-	// always use report caller on debug calls
-	// pro tip: may change formatter as well
-	out.Logger.SetReportCaller(true)
-	defer out.Logger.SetReportCaller(out.reportCaller)
-
 	out.Logln(DebugLevel, args...)
 }
 
@@ -224,14 +208,6 @@ func (out *outputter) Fatalln(args ...interface{}) {
 
 func (out *outputter) Debug(format string, args ...interface{}) {
 	out.initOnce()
-
-	out.mux.Lock()
-	defer out.mux.Unlock()
-	// always use report caller on debug calls
-	// pro tip: may change formatter as well
-	out.Logger.SetReportCaller(true)
-	defer out.Logger.SetReportCaller(out.reportCaller)
-
 	out.Logf(DebugLevel, format, args...)
 }
 
@@ -298,15 +274,6 @@ func (out *outputter) SetFormatter(formatter Formatter) {
 func (out *outputter) SetOutput(output io.Writer) {
 	out.initOnce()
 	out.Logger.SetOutput(output)
-}
-
-// SetReportCaller enables callee source file and line reporting.
-func (out *outputter) SetReportCaller(reportCaller bool) {
-	out.initOnce()
-	out.mux.Lock()
-	out.reportCaller = reportCaller
-	out.mux.Unlock()
-	out.Logger.SetReportCaller(reportCaller)
 }
 
 // ReplaceHooks replaces the logger hooks and returns the old ones

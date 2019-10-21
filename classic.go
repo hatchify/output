@@ -64,11 +64,6 @@ func (out *Logger) entryWithPrefix() *Entry {
 }
 
 func (out *Logger) Debug(format string, args ...interface{}) {
-	out.mux.Lock()
-	defer out.mux.Unlock()
-	out.Logger.SetReportCaller(true)
-	defer out.Logger.SetReportCaller(false)
-
 	out.entryWithPrefix().Logf(DebugLevel, format, args...)
 }
 
