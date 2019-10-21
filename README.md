@@ -10,8 +10,6 @@ Output is an output logger helper library a few simple features:
 
 ### Debug
 
-### Metrics
-
 ### Bugsnag
 
-### Amazon S3 Uploads
+### Blob Uploads
