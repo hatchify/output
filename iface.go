@@ -69,6 +69,7 @@ type Outputter interface {
 	IsLevelEnabled(level Level) bool
 	AddHook(hook Hook)
 	ReplaceHooks(hooks LevelHooks) LevelHooks
+	CallerName() string
 	Exit(code int)
 }
 

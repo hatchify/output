@@ -164,3 +164,7 @@ func Panicln(args ...interface{}) {
 func Exit(code int) {
 	defaultOut.Exit(code)
 }
+
+func FnName() string {
+	return defaultOut.CallerName()
+}

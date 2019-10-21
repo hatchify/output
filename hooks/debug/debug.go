@@ -3,10 +3,9 @@ package debug
 import (
 	"fmt"
 	"path/filepath"
-	"runtime"
 	"strings"
-	"sync"
 
+	"github.com/hatchify/output/stackcache"
 	"github.com/sirupsen/logrus"
 )
 
@@ -50,24 +49,14 @@ func checkHookOptions(opt *HookOptions) *HookOptions {
 func NewHook(opt *HookOptions) logrus.Hook {
 	opt = checkHookOptions(opt)
 	return &hook{
-		opt: opt,
-		// start at the bottom of the stack before the package-name cache is primed
-		minimumCallerDepth: 1,
-		// limit caller depth scanning to avoid failing in weird configurations
-		maximumCallerDepth: 25,
+		opt:   opt,
+		stack: stackcache.New(opt.FramesOffset),
 	}
 }
 
 type hook struct {
-	opt *HookOptions
-
-	// qualified package name, cached at first use
-	outputPackageName string
-	// Used for caller information initialisation
-	callerInitOnce sync.Once
-
-	minimumCallerDepth int
-	maximumCallerDepth int
+	opt   *HookOptions
+	stack stackcache.StackCache
 }
 
 func (h *hook) Levels() []logrus.Level {
@@ -75,7 +64,7 @@ func (h *hook) Levels() []logrus.Level {
 }
 
 func (h *hook) Fire(e *logrus.Entry) error {
-	caller, ok := h.getCaller()
+	caller, ok := h.stack.GetCaller()
 	if !ok {
 		// no caller info
 		return nil
@@ -99,50 +88,4 @@ func limitPath(path string, n int) string {
 		pathParts = pathParts[len(pathParts)-n:]
 	}
 	return filepath.Join(pathParts...)
-}
-
-// getPackageName reduces a fully qualified function name to the package name
-// This function is from logrus internals.
-func getPackageName(path string) string {
-	for {
-		lastPeriod := strings.LastIndex(path, ".")
-		lastSlash := strings.LastIndex(path, "/")
-		if lastPeriod > lastSlash {
-			path = path[:lastPeriod]
-		} else {
-			break
-		}
-	}
-	return path
-}
-
-// getCaller retrieves the name of the first non-logrus calling function.
-// This function is from logrus internals.
-func (h *hook) getCaller() (runtime.Frame, bool) {
-	// cache this package's fully-qualified name
-	h.callerInitOnce.Do(func() {
-		pcs := make([]uintptr, 2)
-		_ = runtime.Callers(0, pcs)
-		h.outputPackageName = getPackageName(runtime.FuncForPC(pcs[1]).Name())
-
-		// now that we have the cache, we can skip a minimum count of known-logrus functions
-		h.minimumCallerDepth = h.opt.FramesOffset
-	})
-
-	// Restrict the lookback frames to avoid runaway lookups
-	pcs := make([]uintptr, h.maximumCallerDepth)
-	depth := runtime.Callers(h.minimumCallerDepth, pcs)
-	frames := runtime.CallersFrames(pcs[:depth])
-
-	for f, again := frames.Next(); again; f, again = frames.Next() {
-		pkg := getPackageName(f.Function)
-
-		// If the caller isn't part of the package, we're done
-		if pkg != h.outputPackageName {
-			return f, true
-		}
-	}
-
-	// if we got here, we failed to find the caller's context
-	return runtime.Frame{}, false
 }

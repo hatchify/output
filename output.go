@@ -4,10 +4,12 @@ import (
 	"context"
 	"io"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
 	debugHook "github.com/hatchify/output/hooks/debug"
+	"github.com/hatchify/output/stackcache"
 	"github.com/sirupsen/logrus"
 	"github.com/xlab/closer"
 )
@@ -28,6 +30,7 @@ func NewOutputter(wc io.Writer, formatter Formatter, hooks ...Hook) Outputter {
 
 		wc:       wc,
 		mux:      new(sync.Mutex),
+		stack:    stackcache.New(3),
 		initDone: true,
 	}
 	for _, h := range hooks {
@@ -39,8 +42,10 @@ func NewOutputter(wc io.Writer, formatter Formatter, hooks ...Hook) Outputter {
 type outputter struct {
 	*logrus.Logger
 
-	mux *sync.Mutex
-	wc  io.Writer
+	mux         *sync.Mutex
+	wc          io.Writer
+	stack       stackcache.StackCache
+	stackOffset int
 
 	init     sync.Once
 	initDone bool
@@ -64,6 +69,10 @@ func (out *outputter) initOnce() {
 			Level:     DebugLevel,
 			ExitFunc:  closer.Exit,
 		}
+		if out.stackOffset == 0 {
+			out.stackOffset = 4
+		}
+		out.stack = stackcache.New(out.stackOffset)
 		out.Logger.AddHook(debugHook.NewHook(&debugHook.HookOptions{
 			FramesOffset: 12,
 		}))
@@ -282,6 +291,8 @@ func (out *outputter) ReplaceHooks(hooks LevelHooks) LevelHooks {
 	return out.Logger.ReplaceHooks(hooks)
 }
 
+// Close effectively closes output, closing the underlying writer
+// if it implements io.WriteCloser.
 func (out *outputter) Close() (err error) {
 	// bail out if already closed
 	out.mux.Lock()
@@ -296,4 +307,16 @@ func (out *outputter) Close() (err error) {
 		return outCloser.Close()
 	}
 	return
+}
+
+// CallerName returns caller function name.
+func (out *outputter) CallerName() string {
+	out.initOnce()
+	caller, ok := out.stack.GetCaller()
+	if !ok {
+		return ""
+	}
+	parts := strings.Split(caller.Function, "/")
+	nameParts := strings.Split(parts[len(parts)-1], ".")
+	return nameParts[len(nameParts)-1]
 }
