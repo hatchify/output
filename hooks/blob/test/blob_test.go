@@ -5,14 +5,16 @@ import (
 	"testing"
 	"time"
 
+	blobHook "github.com/hatchify/output/hooks/blob"
+
 	"github.com/hatchify/output"
 )
 
 func TestBlobHook(t *testing.T) {
-	opts := &HookOptions{
+	opts := &blobHook.HookOptions{
 		Env: "test",
 	}
-	out := output.NewOutputter(os.Stderr, new(output.TextFormatter), NewHook(opts))
+	out := output.NewOutputter(os.Stderr, new(output.TextFormatter), blobHook.NewHook(opts))
 	ts := time.Now()
 	out.WithField("blob", testBlob).Infoln("test is running, trying to submit blob")
 	out.Debug("test done in %s", time.Since(ts))

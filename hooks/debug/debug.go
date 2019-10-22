@@ -2,6 +2,7 @@ package debug
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -11,6 +12,8 @@ import (
 
 // HookOptions allows to set additional Hook options.
 type HookOptions struct {
+	// AppVersion specifies version of the app currently running.
+	AppVersion string
 	// Levels enables this hook for all listed levels.
 	Levels []logrus.Level
 	// FramesOffset allows to have flexibility of stack trace parsing,
@@ -29,6 +32,9 @@ type HookOptions struct {
 func checkHookOptions(opt *HookOptions) *HookOptions {
 	if opt == nil {
 		opt = &HookOptions{}
+	}
+	if len(opt.AppVersion) == 0 {
+		opt.AppVersion = os.Getenv("OUTPUT_APP_VERSION")
 	}
 	if len(opt.Levels) == 0 {
 		opt.Levels = []logrus.Level{
@@ -76,6 +82,9 @@ func (h *hook) Fire(e *logrus.Entry) error {
 	}
 	callerFile := limitPath(caller.File, h.opt.PathSegmentsLimit)
 	e.Data["src"] = fmt.Sprintf("%s:%d", callerFile, caller.Line)
+	if len(h.opt.AppVersion) > 0 {
+		e.Data["ver"] = h.opt.AppVersion
+	}
 	return nil
 }
 

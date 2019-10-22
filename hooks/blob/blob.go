@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/hatchify/output"
+	"github.com/sirupsen/logrus"
 )
 
 // HookOptions allows to set additional Hook options.
@@ -20,6 +20,7 @@ type HookOptions struct {
 	BlobStoreRegion   string
 	BlobStoreBucket   string
 	BlobRetentionTTL  time.Duration
+	BlobEnabledEnv    map[string]bool
 }
 
 func checkHookOptions(opt *HookOptions) *HookOptions {
@@ -29,7 +30,7 @@ func checkHookOptions(opt *HookOptions) *HookOptions {
 	if len(opt.Env) == 0 {
 		opt.Env = os.Getenv("OUTPUT_ENV")
 		if len(opt.Env) == 0 {
-			opt.Env = "test"
+			opt.Env = "local"
 		}
 	}
 	if len(opt.BlobStoreURL) == 0 {
@@ -54,11 +55,18 @@ func checkHookOptions(opt *HookOptions) *HookOptions {
 		// keep blobs for 3 months
 		opt.BlobRetentionTTL = 2232 * time.Hour
 	}
+	if len(opt.BlobEnabledEnv) == 0 {
+		opt.BlobEnabledEnv = map[string]bool{
+			"prod":    true,
+			"staging": true,
+			"test":    true,
+		}
+	}
 	return opt
 }
 
 // NewHook initializes a new output.Hook using provided params and options.
-func NewHook(opt *HookOptions) output.Hook {
+func NewHook(opt *HookOptions) logrus.Hook {
 	opt = checkHookOptions(opt)
 	s3Remote := NewS3Remote(
 		opt.BlobStoreAccount,
@@ -68,9 +76,9 @@ func NewHook(opt *HookOptions) output.Hook {
 		opt.BlobStoreBucket,
 	)
 	if err := s3Remote.CheckAccess(opt.Env); err != nil {
-		output.WithError(err).WithFields(output.Fields{
-			"account": opt.BlobStoreAccount,
-			"bucket":  opt.BlobStoreBucket,
+		logrus.WithError(err).WithFields(logrus.Fields{
+			"account":  opt.BlobStoreAccount,
+			"bucket":   opt.BlobStoreBucket,
 			"endpoint": opt.BlobStoreEndpoint,
 		}).Warning("failed to verify S3 remote access")
 		s3Remote = nil
@@ -86,26 +94,29 @@ type hook struct {
 	s3Remote S3Remote
 }
 
-func (h *hook) Levels() []output.Level {
-	return []output.Level{
-		output.PanicLevel,
-		output.FatalLevel,
-		output.ErrorLevel,
-		output.WarnLevel,
-		output.SuccessLevel,
-		output.InfoLevel,
-		output.DebugLevel,
-		output.TraceLevel,
+func (h *hook) Levels() []logrus.Level {
+	return []logrus.Level{
+		logrus.PanicLevel,
+		logrus.FatalLevel,
+		logrus.ErrorLevel,
+		logrus.WarnLevel,
+		logrus.InfoLevel,
+		logrus.DebugLevel,
+		logrus.TraceLevel,
 	}
 }
 
-func (h *hook) Fire(e *output.Entry) error {
+func (h *hook) Fire(e *logrus.Entry) error {
 	blob, hasBlob := e.Data["blob"]
 	if !hasBlob {
 		return nil
 	}
 	if h.s3Remote == nil {
-		output.Warning("blob provided but S3 remote is disabled")
+		logrus.Warning("blob provided but S3 remote is disabled")
+		delete(e.Data, "blob")
+		return nil
+	} else if enabled := h.opt.BlobEnabledEnv[h.opt.Env]; !enabled {
+		logrus.Infof("blob provided but uploading is disabled in %s", h.opt.Env)
 		delete(e.Data, "blob")
 		return nil
 	}
@@ -134,7 +145,7 @@ func (h *hook) blobUpload(blobID string, payload []byte) {
 	objectKey := filepath.Join(h.opt.Env, blobID)
 	_, err := h.s3Remote.PutObject(objectKey, bytes.NewReader(payload), nil)
 	if err != nil {
-		output.WithError(err).WithFields(output.Fields{
+		logrus.WithError(err).WithFields(logrus.Fields{
 			"bucket": h.opt.BlobStoreBucket,
 			"key":    objectKey,
 		}).Errorln("failed to upload blob to S3 remote server")
