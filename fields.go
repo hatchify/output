@@ -6,6 +6,7 @@ func WithFn(fields ...Fields) Fields {
 		result["fn"] = defaultOut.CallerName()
 		return result
 	}
+
 	return Fields{
 		"fn": defaultOut.CallerName(),
 	}
@@ -16,6 +17,7 @@ func WithMore(fields Fields, add Fields) Fields {
 	for k, v := range add {
 		fields[k] = v
 	}
+
 	return fields
 }
 
@@ -24,5 +26,6 @@ func copyFields(fields Fields) Fields {
 	for k, v := range fields {
 		ff[k] = v
 	}
+
 	return ff
 }

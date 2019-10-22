@@ -18,11 +18,6 @@ type S3Remote interface {
 	PutObject(key string, r io.Reader, meta map[string]string) (*S3Spec, error)
 }
 
-type s3Remote struct {
-	bucket string
-	cli    *s3.S3
-}
-
 func NewS3Remote(accoutID, secretKey, endpoint, region, bucket string) (S3Remote, error) {
 	sess, err := session.NewSession(&aws.Config{
 		Credentials: credentials.NewStaticCredentials(accoutID, secretKey, ""),
@@ -47,6 +42,11 @@ type S3Spec struct {
 	UpdatedAt time.Time
 	Meta      map[string]string
 	Size      int64
+}
+
+type s3Remote struct {
+	bucket string
+	cli    *s3.S3
 }
 
 func (s *s3Remote) CheckAccess(prefix string) error {

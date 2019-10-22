@@ -28,24 +28,24 @@ const (
 )
 
 // ParseLevel takes a string level and returns the output log level constant.
-func ParseLevel(lvl string) (Level, error) {
-	switch strings.ToLower(lvl) {
+func ParseLevel(levelName string) (level Level, err error) {
+	switch strings.ToLower(levelName) {
 	case "panic":
-		return PanicLevel, nil
+		level = PanicLevel
 	case "fatal":
-		return FatalLevel, nil
+		level = FatalLevel
 	case "error":
-		return ErrorLevel, nil
+		level = ErrorLevel
 	case "warn", "warning":
-		return WarnLevel, nil
+		level = WarnLevel
 	case "info":
-		return InfoLevel, nil
+		level = InfoLevel
 	case "debug":
-		return DebugLevel, nil
+		level = DebugLevel
 	case "trace":
-		return TraceLevel, nil
+		level = TraceLevel
+	default:
+		err = fmt.Errorf("not a valid output Level: %s", levelName)
 	}
-
-	var l Level
-	return l, fmt.Errorf("not a valid output Level: %q", lvl)
+	return
 }

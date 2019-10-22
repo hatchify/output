@@ -7,8 +7,11 @@ import (
 
 var (
 	//nolint:gochecknoglobals
-	defaultOut           = &outputter{}
-	_          Outputter = defaultOut
+	defaultOut = &outputter{}
+
+	// Ensure that defaultOpt's type *outputter matches Outputter interface
+	// during the compilation phase.
+	_ Outputter = defaultOut
 )
 
 // CLASSIC LOGGER METHODS

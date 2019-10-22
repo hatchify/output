@@ -8,6 +8,9 @@ import (
 	"github.com/oklog/ulid"
 )
 
+// NewBlobID returns a pseudo-randomly generated ULID -
+// Universally Unique Lexicographically Sortable Identifier
+// - see https://github.com/ulid/spec
 func NewBlobID() string {
 	return ulid.MustNew(ulid.Timestamp(time.Now()), globalRand).String()
 }
@@ -17,6 +20,7 @@ var globalRand = rand.New(&lockedSource{
 	src: rand.NewSource(time.Now().UnixNano()),
 })
 
+// lockedSource provides rand.Source with a mutex to avoid races.
 type lockedSource struct {
 	lk  sync.Mutex
 	src rand.Source

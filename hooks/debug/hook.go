@@ -48,12 +48,14 @@ func checkHookOptions(opt *HookOptions) *HookOptions {
 	if opt.PathSegmentsLimit == 0 {
 		opt.PathSegmentsLimit = 3
 	}
+
 	return opt
 }
 
 // NewHook initializes a new logrus.Hook using provided params and options.
 func NewHook(opt *HookOptions) logrus.Hook {
 	opt = checkHookOptions(opt)
+
 	return &hook{
 		opt:   opt,
 		stack: stackcache.New(opt.FramesOffset),
@@ -85,6 +87,7 @@ func (h *hook) Fire(e *logrus.Entry) error {
 	if len(h.opt.AppVersion) > 0 {
 		e.Data["ver"] = h.opt.AppVersion
 	}
+
 	return nil
 }
 
@@ -96,5 +99,6 @@ func limitPath(path string, n int) string {
 	if len(pathParts) > n {
 		pathParts = pathParts[len(pathParts)-n:]
 	}
+
 	return filepath.Join(pathParts...)
 }

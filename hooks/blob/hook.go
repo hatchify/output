@@ -23,38 +23,49 @@ type HookOptions struct {
 	BlobEnabledEnv    map[string]bool
 }
 
+// DefaultRetentionTTL is currently set to be 3 months.
+const DefaultRenentionTTL = 2232 * time.Hour
+
 func checkHookOptions(opt *HookOptions) *HookOptions {
 	if opt == nil {
 		opt = &HookOptions{}
 	}
+
 	if len(opt.Env) == 0 {
 		opt.Env = os.Getenv("OUTPUT_ENV")
 		if len(opt.Env) == 0 {
 			opt.Env = "local"
 		}
 	}
+
 	if len(opt.BlobStoreURL) == 0 {
 		opt.BlobStoreURL = os.Getenv("OUTPUT_BLOB_STORE_URL")
 	}
+
 	if len(opt.BlobStoreAccount) == 0 {
 		opt.BlobStoreAccount = os.Getenv("OUTPUT_BLOB_STORE_ACCOUNT")
 	}
+
 	if len(opt.BlobStoreKey) == 0 {
 		opt.BlobStoreKey = os.Getenv("OUTPUT_BLOB_STORE_KEY")
 	}
+
 	if len(opt.BlobStoreEndpoint) == 0 {
 		opt.BlobStoreEndpoint = os.Getenv("OUTPUT_BLOB_STORE_ENDPOINT")
 	}
+
 	if len(opt.BlobStoreRegion) == 0 {
 		opt.BlobStoreRegion = os.Getenv("OUTPUT_BLOB_STORE_REGION")
 	}
+
 	if len(opt.BlobStoreBucket) == 0 {
 		opt.BlobStoreBucket = os.Getenv("OUTPUT_BLOB_STORE_BUCKET")
 	}
+
 	if opt.BlobRetentionTTL == 0 {
-		// keep blobs for 3 months
-		opt.BlobRetentionTTL = 2232 * time.Hour
+		opt.BlobRetentionTTL = DefaultRenentionTTL
 	}
+
 	if len(opt.BlobEnabledEnv) == 0 {
 		opt.BlobEnabledEnv = map[string]bool{
 			"prod":    true,
@@ -62,6 +73,7 @@ func checkHookOptions(opt *HookOptions) *HookOptions {
 			"test":    true,
 		}
 	}
+
 	return opt
 }
 
@@ -80,6 +92,7 @@ func NewHook(opt *HookOptions) logrus.Hook {
 		opt.BlobStoreRegion,
 		opt.BlobStoreBucket,
 	)
+
 	if err != nil {
 		out.WithError(err).Warning("failed to init S3 session")
 		s3Remote = nil
@@ -87,6 +100,7 @@ func NewHook(opt *HookOptions) logrus.Hook {
 		out.WithError(err).Warning("failed to verify S3 remote access")
 		s3Remote = nil
 	}
+
 	return &hook{
 		opt:      opt,
 		s3Remote: s3Remote,
@@ -115,6 +129,7 @@ func (h *hook) Fire(e *logrus.Entry) error {
 	if !hasBlob {
 		return nil
 	}
+
 	if h.s3Remote == nil {
 		logrus.Warning("blob provided but S3 remote is disabled")
 		delete(e.Data, "blob")
@@ -124,6 +139,7 @@ func (h *hook) Fire(e *logrus.Entry) error {
 		delete(e.Data, "blob")
 		return nil
 	}
+
 	var blobPayload []byte
 	switch bb := blob.(type) {
 	case string:
@@ -136,12 +152,15 @@ func (h *hook) Fire(e *logrus.Entry) error {
 		return nil
 	}
 	blobID := NewBlobID()
+
 	if len(h.opt.BlobStoreURL) > 0 {
 		e.Data["blob"] = fmt.Sprintf("%s/%s", h.opt.BlobStoreURL, blobID)
 	} else {
 		e.Data["blob"] = fmt.Sprintf("%s/%s", h.opt.Env, blobID)
 	}
+
 	h.blobUpload(blobID, blobPayload)
+
 	return nil
 }
 
