@@ -12,6 +12,7 @@ func NewBlobID() string {
 	return ulid.MustNew(ulid.Timestamp(time.Now()), globalRand).String()
 }
 
+//nolint:gochecknoglobals
 var globalRand = rand.New(&lockedSource{
 	src: rand.NewSource(time.Now().UnixNano()),
 })

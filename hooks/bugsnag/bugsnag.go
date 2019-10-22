@@ -129,8 +129,8 @@ func (h *hook) Fire(e *logrus.Entry) error {
 		needSync = true
 	}
 	user := bugsnag.User{}
-	if userId, ok := e.Data["@user.id"].(string); ok {
-		user.Id = userId
+	if userID, ok := e.Data["@user.id"].(string); ok {
+		user.Id = userID
 		delete(e.Data, "@user.id")
 	}
 	if userName, ok := e.Data["@user.name"].(string); ok {
@@ -143,10 +143,10 @@ func (h *hook) Fire(e *logrus.Entry) error {
 	}
 	metaData := fieldsToMetaData(e.Data)
 	if len(errContext.String) > 0 {
-		h.notifier.NotifySync(err, needSync, severity, metaData, user, errContext)
+		_ = h.notifier.NotifySync(err, needSync, severity, metaData, user, errContext)
 		return nil
 	}
-	h.notifier.NotifySync(err, needSync, severity, metaData, user)
+	_ = h.notifier.NotifySync(err, needSync, severity, metaData, user)
 	return nil
 }
 

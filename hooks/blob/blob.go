@@ -68,19 +68,23 @@ func checkHookOptions(opt *HookOptions) *HookOptions {
 // NewHook initializes a new output.Hook using provided params and options.
 func NewHook(opt *HookOptions) logrus.Hook {
 	opt = checkHookOptions(opt)
-	s3Remote := NewS3Remote(
+	out := logrus.WithFields(logrus.Fields{
+		"account":  opt.BlobStoreAccount,
+		"bucket":   opt.BlobStoreBucket,
+		"endpoint": opt.BlobStoreEndpoint,
+	})
+	s3Remote, err := NewS3Remote(
 		opt.BlobStoreAccount,
 		opt.BlobStoreKey,
 		opt.BlobStoreEndpoint,
 		opt.BlobStoreRegion,
 		opt.BlobStoreBucket,
 	)
-	if err := s3Remote.CheckAccess(opt.Env); err != nil {
-		logrus.WithError(err).WithFields(logrus.Fields{
-			"account":  opt.BlobStoreAccount,
-			"bucket":   opt.BlobStoreBucket,
-			"endpoint": opt.BlobStoreEndpoint,
-		}).Warning("failed to verify S3 remote access")
+	if err != nil {
+		out.WithError(err).Warning("failed to init S3 session")
+		s3Remote = nil
+	} else if err := s3Remote.CheckAccess(opt.Env); err != nil {
+		out.WithError(err).Warning("failed to verify S3 remote access")
 		s3Remote = nil
 	}
 	return &hook{

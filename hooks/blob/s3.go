@@ -23,15 +23,19 @@ type s3Remote struct {
 	cli    *s3.S3
 }
 
-func NewS3Remote(accoutID, secretKey, endpoint, region, bucket string) S3Remote {
+func NewS3Remote(accoutID, secretKey, endpoint, region, bucket string) (S3Remote, error) {
+	sess, err := session.NewSession(&aws.Config{
+		Credentials: credentials.NewStaticCredentials(accoutID, secretKey, ""),
+		Endpoint:    aws.String(endpoint),
+		Region:      aws.String(region),
+	})
+	if err != nil {
+		return nil, err
+	}
 	return &s3Remote{
 		bucket: bucket,
-		cli: s3.New(session.New(&aws.Config{
-			Credentials: credentials.NewStaticCredentials(accoutID, secretKey, ""),
-			Endpoint:    aws.String(endpoint),
-			Region:      aws.String(region),
-		})),
-	}
+		cli:    s3.New(sess),
+	}, nil
 }
 
 type S3Spec struct {
