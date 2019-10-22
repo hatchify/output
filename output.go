@@ -8,7 +8,10 @@ import (
 	"sync"
 	"time"
 
+	blobHook "github.com/hatchify/output/hooks/blob"
+	bugsnagHook "github.com/hatchify/output/hooks/bugsnag"
 	debugHook "github.com/hatchify/output/hooks/debug"
+
 	"github.com/hatchify/output/stackcache"
 	"github.com/sirupsen/logrus"
 	"github.com/xlab/closer"
@@ -20,7 +23,7 @@ func NewOutputter(wc io.Writer, formatter Formatter, hooks ...Hook) Outputter {
 		formatter = new(TextFormatter)
 	}
 	out := &outputter{
-		Logger: &logrus.Logger{
+		logger: &logrus.Logger{
 			Out:       wc,
 			Formatter: formatter,
 			Hooks:     make(LevelHooks),
@@ -33,6 +36,7 @@ func NewOutputter(wc io.Writer, formatter Formatter, hooks ...Hook) Outputter {
 		stack:    stackcache.New(3),
 		initDone: true,
 	}
+	out.entry = out.logger.WithContext(context.Background())
 	for _, h := range hooks {
 		out.AddHook(h)
 	}
@@ -40,7 +44,8 @@ func NewOutputter(wc io.Writer, formatter Formatter, hooks ...Hook) Outputter {
 }
 
 type outputter struct {
-	*logrus.Logger
+	logger *logrus.Logger
+	entry  *logrus.Entry
 
 	mux         *sync.Mutex
 	wc          io.Writer
@@ -62,233 +67,272 @@ func (out *outputter) initOnce() {
 			out.wc = os.Stderr
 		}
 		// otherwise init output with conservative defaults
-		out.Logger = &logrus.Logger{
+		out.logger = &logrus.Logger{
 			Out:       out.wc,
 			Formatter: new(TextFormatter),
 			Hooks:     make(LevelHooks),
 			Level:     DebugLevel,
 			ExitFunc:  closer.Exit,
 		}
+		out.entry = out.logger.WithContext(context.Background())
 		if out.stackOffset == 0 {
 			out.stackOffset = 4
 		}
 		out.stack = stackcache.New(out.stackOffset)
-		out.Logger.AddHook(debugHook.NewHook(&debugHook.HookOptions{
-			FramesOffset: 12,
-		}))
+		out.addDefaultHooks()
 		out.mux = new(sync.Mutex)
 		out.initDone = true
 	})
 }
 
+// addDefaultHooks initializes default hooks and additional hooks
+// based on the environment setup.
+func (out *outputter) addDefaultHooks() {
+	out.logger.AddHook(debugHook.NewHook(&debugHook.HookOptions{
+		FramesOffset: 11,
+	}))
+	if isTrue(os.Getenv("OUTPUT_BLOB_ENABLED")) {
+		out.logger.AddHook(blobHook.NewHook(nil))
+	}
+	if isTrue(os.Getenv("OUTPUT_BUGSNAG_ENABLED")) {
+		out.logger.AddHook(bugsnagHook.NewHook(&bugsnagHook.HookOptions{
+			FramesOffset: 10,
+		}))
+	}
+}
+
 // Adds a field to the log entry, note that it doesn't log until you call
 // Debug, Print, Info, Warn, Error, Fatal or Panic. It only creates a log entry.
 // If you want multiple fields, use `WithFields`.
-func (out *outputter) WithField(key string, value interface{}) *Entry {
+func (out *outputter) WithField(key string, value interface{}) Outputter {
 	out.initOnce()
-	return out.Logger.WithField(key, value)
+	outCopy := out.copy()
+	outCopy.entry = out.entry.WithField(key, value)
+	return outCopy
 }
 
 // Adds a struct of fields to the log entry. All it does is call `WithField` for
 // each `Field`.
-func (out *outputter) WithFields(fields Fields) *Entry {
+func (out *outputter) WithFields(fields Fields) Outputter {
 	out.initOnce()
-	return out.Logger.WithFields(fields)
+	outCopy := out.copy()
+	outCopy.entry = out.entry.WithFields(fields)
+	return outCopy
 }
 
 // Add an error as single field to the log entry.  All it does is call
 // `WithError` for the given `error`.
-func (out *outputter) WithError(err error) *Entry {
+func (out *outputter) WithError(err error) Outputter {
 	out.initOnce()
-	return out.Logger.WithError(err)
+	outCopy := out.copy()
+	outCopy.entry = out.entry.WithError(err)
+	return outCopy
 }
 
 // Add a context to the log entry.
-func (out *outputter) WithContext(ctx context.Context) *Entry {
+func (out *outputter) WithContext(ctx context.Context) Outputter {
 	out.initOnce()
-	return out.Logger.WithContext(ctx)
+	outCopy := out.copy()
+	outCopy.entry = out.entry.WithContext(ctx)
+	return outCopy
 }
 
 // Overrides the time of the log entry.
-func (out *outputter) WithTime(t time.Time) *Entry {
+func (out *outputter) WithTime(t time.Time) Outputter {
 	out.initOnce()
-	return out.Logger.WithTime(t)
+	outCopy := out.copy()
+	outCopy.entry = out.entry.WithTime(t)
+	return outCopy
 }
 
 func (out *outputter) Logf(level Level, format string, args ...interface{}) {
 	out.initOnce()
-	out.Logger.Logf(level, format, args...)
+	out.entry.Logf(level, format, args...)
 }
 
 func (out *outputter) Tracef(format string, args ...interface{}) {
-	out.Logf(TraceLevel, format, args...)
+	out.initOnce()
+	out.entry.Logf(TraceLevel, format, args...)
 }
 
 func (out *outputter) Debugf(format string, args ...interface{}) {
 	out.initOnce()
-	out.Logf(DebugLevel, format, args...)
+	out.entry.Logf(DebugLevel, format, args...)
 }
 
 func (out *outputter) Infof(format string, args ...interface{}) {
-	out.Logf(InfoLevel, format, args...)
+	out.initOnce()
+	out.entry.Logf(InfoLevel, format, args...)
 }
 
 func (out *outputter) Printf(format string, args ...interface{}) {
 	out.initOnce()
-	out.Logger.Printf(format, args...)
+	out.entry.Printf(format, args...)
 }
 
 func (out *outputter) Warningf(format string, args ...interface{}) {
 	out.initOnce()
-	out.Logf(WarnLevel, format, args...)
+	out.entry.Logf(WarnLevel, format, args...)
+}
+
+func (out *outputter) Errorf(format string, args ...interface{}) {
+	out.initOnce()
+	out.entry.Logf(ErrorLevel, format, args...)
 }
 
 func (out *outputter) Fatalf(format string, args ...interface{}) {
-	out.Logf(FatalLevel, format, args...)
-	out.Exit(1)
+	out.initOnce()
+	out.entry.Logf(FatalLevel, format, args...)
+	out.logger.Exit(1)
 }
 
 func (out *outputter) Panicf(format string, args ...interface{}) {
-	out.Logf(PanicLevel, format, args...)
+	out.initOnce()
+	out.entry.Logf(PanicLevel, format, args...)
 }
 
 func (out *outputter) Log(level Level, args ...interface{}) {
 	out.initOnce()
-	out.Logger.Log(level, args...)
+	out.entry.Log(level, args...)
 }
 
 func (out *outputter) Trace(args ...interface{}) {
-	out.Log(TraceLevel, args...)
+	out.initOnce()
+	out.entry.Log(TraceLevel, args...)
 }
 
 func (out *outputter) Info(args ...interface{}) {
-	out.Log(InfoLevel, args...)
+	out.initOnce()
+	out.entry.Log(InfoLevel, args...)
 }
 
 func (out *outputter) Print(args ...interface{}) {
 	out.initOnce()
-	out.Logger.Print(args...)
+	out.entry.Print(args...)
 }
 
 func (out *outputter) Fatal(args ...interface{}) {
-	out.Log(FatalLevel, args...)
-	out.Exit(1)
+	out.initOnce()
+	out.entry.Log(FatalLevel, args...)
+	out.logger.Exit(1)
 }
 
 func (out *outputter) Panic(args ...interface{}) {
-	out.Log(PanicLevel, args...)
+	out.initOnce()
+	out.entry.Log(PanicLevel, args...)
 }
 
 func (out *outputter) Logln(level Level, args ...interface{}) {
 	out.initOnce()
-	out.Logger.Logln(level, args...)
+	out.entry.Logln(level, args...)
 }
 
 func (out *outputter) Traceln(args ...interface{}) {
-	out.Logln(TraceLevel, args...)
+	out.initOnce()
+	out.entry.Logln(TraceLevel, args...)
 }
 
 func (out *outputter) Debugln(args ...interface{}) {
 	out.initOnce()
-	out.Logln(DebugLevel, args...)
+	out.entry.Logln(DebugLevel, args...)
 }
 
 func (out *outputter) Infoln(args ...interface{}) {
-	out.Logln(InfoLevel, args...)
+	out.initOnce()
+	out.entry.Logln(InfoLevel, args...)
 }
 
 func (out *outputter) Println(args ...interface{}) {
 	out.initOnce()
-	out.Logger.Println(args...)
+	out.entry.Println(args...)
 }
 
 func (out *outputter) Warningln(args ...interface{}) {
-	out.Logln(WarnLevel, args...)
+	out.initOnce()
+	out.entry.Logln(WarnLevel, args...)
 }
 
 func (out *outputter) Errorln(args ...interface{}) {
-	out.Logln(ErrorLevel, args...)
+	out.initOnce()
+	out.entry.Logln(ErrorLevel, args...)
 }
 
 func (out *outputter) Fatalln(args ...interface{}) {
-	out.Logln(FatalLevel, args...)
-	out.Exit(1)
+	out.initOnce()
+	out.entry.Logln(FatalLevel, args...)
+	out.logger.Exit(1)
 }
 
 func (out *outputter) Debug(format string, args ...interface{}) {
 	out.initOnce()
-	out.Logf(DebugLevel, format, args...)
+	out.entry.Logf(DebugLevel, format, args...)
 }
 
 func (out *outputter) Notification(format string, args ...interface{}) {
 	out.initOnce()
-	out.Logf(InfoLevel, format, args...)
+	out.entry.Logf(InfoLevel, format, args...)
 }
 
 func (out *outputter) Success(format string, args ...interface{}) {
 	out.initOnce()
-	out.Logf(SuccessLevel, format, args...)
+	out.entry.Logf(InfoLevel, format, args...)
 }
 
 func (out *outputter) Warning(format string, args ...interface{}) {
 	out.initOnce()
-	out.Logf(WarnLevel, format, args...)
+	out.entry.Logf(WarnLevel, format, args...)
 }
 
 func (out *outputter) Error(format string, args ...interface{}) {
 	out.initOnce()
-	out.Logf(ErrorLevel, format, args...)
-}
-
-func (out *outputter) Exit(code int) {
-	out.initOnce()
-	out.Logger.Exit(code)
+	out.entry.Logf(ErrorLevel, format, args...)
 }
 
 func (out *outputter) Panicln(args ...interface{}) {
-	out.Logln(PanicLevel, args...)
+	out.initOnce()
+	out.entry.Logln(PanicLevel, args...)
 }
 
 // SetLevel sets the logger level.
 func (out *outputter) SetLevel(level Level) {
 	out.initOnce()
-	out.Logger.SetLevel(level)
+	out.logger.SetLevel(level)
 }
 
 // GetLevel returns the logger level.
 func (out *outputter) GetLevel() Level {
 	out.initOnce()
-	return out.Logger.GetLevel()
+	return out.logger.GetLevel()
 }
 
 // AddHook adds a hook to the logger hooks.
 func (out *outputter) AddHook(hook Hook) {
 	out.initOnce()
-	out.Logger.AddHook(hook)
+	out.logger.AddHook(hook)
 }
 
 // IsLevelEnabled checks if the log level of the logger is greater than the level param
 func (out *outputter) IsLevelEnabled(level Level) bool {
 	out.initOnce()
-	return out.Logger.IsLevelEnabled(level)
+	return out.logger.IsLevelEnabled(level)
 }
 
 // SetFormatter sets the logger formatter.
 func (out *outputter) SetFormatter(formatter Formatter) {
 	out.initOnce()
-	out.Logger.SetFormatter(formatter)
+	out.logger.SetFormatter(formatter)
 }
 
 // SetOutput sets the logger output.
 func (out *outputter) SetOutput(output io.Writer) {
 	out.initOnce()
-	out.Logger.SetOutput(output)
+	out.logger.SetOutput(output)
 }
 
 // ReplaceHooks replaces the logger hooks and returns the old ones
 func (out *outputter) ReplaceHooks(hooks LevelHooks) LevelHooks {
 	out.initOnce()
-	return out.Logger.ReplaceHooks(hooks)
+	return out.logger.ReplaceHooks(hooks)
 }
 
 // Close effectively closes output, closing the underlying writer
@@ -319,4 +363,25 @@ func (out *outputter) CallerName() string {
 	parts := strings.Split(caller.Function, "/")
 	nameParts := strings.Split(parts[len(parts)-1], ".")
 	return nameParts[len(nameParts)-1]
+}
+
+func isTrue(v string) bool {
+	switch strings.ToLower(v) {
+	case "1", "true", "y":
+		return true
+	}
+	return false
+}
+
+// copy allows to construct an outputter copy with new entry.
+func (out *outputter) copy() *outputter {
+	return &outputter{
+		wc:          out.wc,
+		stackOffset: out.stackOffset,
+		logger:      out.logger,
+		stack:       out.stack,
+		mux:         out.mux,
+		initDone:    out.initDone,
+		closed:      out.closed,
+	}
 }

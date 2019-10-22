@@ -5,8 +5,11 @@ import (
 	"time"
 )
 
-//nolint:gochecknoglobals
-var defaultOut Outputter = &outputter{}
+var (
+	//nolint:gochecknoglobals
+	defaultOut           = &outputter{}
+	_          Outputter = defaultOut
+)
 
 // CLASSIC LOGGER METHODS
 
@@ -49,23 +52,23 @@ func Debug(format string, args ...interface{}) {
 //
 // Part A: Context providers
 
-func WithField(key string, value interface{}) *Entry {
+func WithField(key string, value interface{}) Outputter {
 	return defaultOut.WithField(key, value)
 }
 
-func WithFields(fields Fields) *Entry {
+func WithFields(fields Fields) Outputter {
 	return defaultOut.WithFields(fields)
 }
 
-func WithError(err error) *Entry {
+func WithError(err error) Outputter {
 	return defaultOut.WithError(err)
 }
 
-func WithContext(ctx context.Context) *Entry {
+func WithContext(ctx context.Context) Outputter {
 	return defaultOut.WithContext(ctx)
 }
 
-func WithTime(t time.Time) *Entry {
+func WithTime(t time.Time) Outputter {
 	return defaultOut.WithTime(t)
 }
 
@@ -159,10 +162,6 @@ func Fatalln(args ...interface{}) {
 
 func Panicln(args ...interface{}) {
 	defaultOut.Panicln(args...)
-}
-
-func Exit(code int) {
-	defaultOut.Exit(code)
 }
 
 func FnName() string {

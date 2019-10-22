@@ -2,7 +2,12 @@ package output
 
 import (
 	"io"
+	"os"
 	"sync"
+
+	blobHook "github.com/hatchify/output/hooks/blob"
+	bugsnagHook "github.com/hatchify/output/hooks/bugsnag"
+	debugHook "github.com/hatchify/output/hooks/debug"
 )
 
 // NewWrapper will return a wrapper over default logger. This is for compatibility with
@@ -16,8 +21,8 @@ func NewWrapper(prefix string) *Wrapper {
 // Please use Outputter and its WithFields method for any new code.
 func NewWrapperWithOutputter(o Outputter, prefix string) *Wrapper {
 	w := &Wrapper{
-		Entry:  o.WithField("prefix", prefix),
-		prefix: prefix,
+		Outputter: o.WithField("prefix", prefix),
+		prefix:    prefix,
 	}
 	return w
 }
@@ -25,7 +30,7 @@ func NewWrapperWithOutputter(o Outputter, prefix string) *Wrapper {
 // Wrapper will wrap an output Entry with prefix.
 // You must avoid using Wrapper in any new code, use WithFields instead.
 type Wrapper struct {
-	*Entry
+	Outputter
 	prefix string
 }
 
@@ -37,66 +42,82 @@ type PrefixFunc func() string
 func New(wc io.WriteCloser, prefixFn PrefixFunc) *Logger {
 	outForClassic := NewOutputter(wc, new(TextFormatter))
 	l := &Logger{
-		Entry:    outForClassic.WithField("logger", "classic"),
+		out:      outForClassic.WithField("logger", "classic").(*outputter),
 		wc:       wc,
 		mux:      new(sync.Mutex),
 		prefixFn: prefixFn,
 	}
+	l.addDefaultHooks()
 	return l
 }
 
 // Logger is an instance of ClassicOutputter, it manages an output stream.
 // You should migrate from Logger to output.Outputter iface for any new code.
 type Logger struct {
-	*Entry
-
+	out      *outputter
 	wc       io.WriteCloser
 	mux      *sync.Mutex
 	prefixFn PrefixFunc
 	closed   bool
 }
 
-func (out *Logger) entryWithPrefix() *Entry {
-	if out.prefixFn != nil {
-		return out.Entry.WithField("prefix", out.prefixFn())
+func (l *Logger) outWithPrefix() Outputter {
+	if l.prefixFn != nil {
+		return l.out.WithField("prefix", l.prefixFn())
 	}
-	return out.Entry
+	return l.out
 }
 
-func (out *Logger) Debug(format string, args ...interface{}) {
-	out.entryWithPrefix().Logf(DebugLevel, format, args...)
+// addDefaultHooks initializes default hooks and additional hooks
+// based on the environment setup.
+func (l *Logger) addDefaultHooks() {
+	l.out.AddHook(debugHook.NewHook(&debugHook.HookOptions{
+		FramesOffset: 12,
+	}))
+	if isTrue(os.Getenv("OUTPUT_BLOB_ENABLED")) {
+		l.out.AddHook(blobHook.NewHook(nil))
+	}
+	if isTrue(os.Getenv("OUTPUT_BUGSNAG_ENABLED")) {
+		l.out.AddHook(bugsnagHook.NewHook(&bugsnagHook.HookOptions{
+			FramesOffset: 11,
+		}))
+	}
 }
 
-func (out *Logger) Notification(format string, args ...interface{}) {
-	out.entryWithPrefix().Logf(InfoLevel, format, args...)
+func (l *Logger) Debug(format string, args ...interface{}) {
+	l.outWithPrefix().Logf(DebugLevel, format, args...)
 }
 
-func (out *Logger) Print(msg string) {
-	out.entryWithPrefix().Log(InfoLevel, msg)
+func (l *Logger) Notification(format string, args ...interface{}) {
+	l.outWithPrefix().Logf(InfoLevel, format, args...)
 }
 
-func (out *Logger) Printf(format string, args ...interface{}) {
-	out.entryWithPrefix().Logf(InfoLevel, format, args...)
+func (l *Logger) Print(msg string) {
+	l.outWithPrefix().Log(InfoLevel, msg)
 }
 
-func (out *Logger) Success(format string, args ...interface{}) {
-	out.entryWithPrefix().Logf(SuccessLevel, format, args...)
+func (l *Logger) Printf(format string, args ...interface{}) {
+	l.outWithPrefix().Logf(InfoLevel, format, args...)
 }
 
-func (out *Logger) Warning(format string, args ...interface{}) {
-	out.entryWithPrefix().Logf(WarnLevel, format, args...)
+func (l *Logger) Success(format string, args ...interface{}) {
+	l.outWithPrefix().Logf(InfoLevel, format, args...)
 }
 
-func (out *Logger) Error(format string, args ...interface{}) {
-	out.entryWithPrefix().Logf(ErrorLevel, format, args...)
+func (l *Logger) Warning(format string, args ...interface{}) {
+	l.outWithPrefix().Logf(WarnLevel, format, args...)
 }
 
-func (out *Logger) Close() (err error) {
-	out.mux.Lock()
-	defer out.mux.Unlock()
-	if out.closed {
+func (l *Logger) Error(format string, args ...interface{}) {
+	l.outWithPrefix().Logf(ErrorLevel, format, args...)
+}
+
+func (l *Logger) Close() (err error) {
+	l.mux.Lock()
+	defer l.mux.Unlock()
+	if l.closed {
 		return
 	}
-	out.closed = true
-	return out.wc.Close()
+	l.closed = true
+	return l.wc.Close()
 }

@@ -24,11 +24,11 @@ type Outputter interface {
 
 	// Logrus context providers
 
-	WithField(key string, value interface{}) *Entry
-	WithFields(fields Fields) *Entry
-	WithError(err error) *Entry
-	WithContext(ctx context.Context) *Entry
-	WithTime(t time.Time) *Entry
+	WithField(key string, value interface{}) Outputter
+	WithFields(fields Fields) Outputter
+	WithError(err error) Outputter
+	WithContext(ctx context.Context) Outputter
+	WithTime(t time.Time) Outputter
 
 	// Logrus formatted logging methods
 
@@ -59,9 +59,9 @@ type Outputter interface {
 	Errorln(args ...interface{})
 	Fatalln(args ...interface{})
 	Panicln(args ...interface{})
+}
 
-	// Logrus configuration and middleware
-
+type OutputterConfigurator interface {
 	SetFormatter(formatter Formatter)
 	SetOutput(output io.Writer)
 	SetLevel(level Level)
@@ -70,7 +70,6 @@ type Outputter interface {
 	AddHook(hook Hook)
 	ReplaceHooks(hooks LevelHooks) LevelHooks
 	CallerName() string
-	Exit(code int)
 }
 
 // Won't compile if StdLogger can't be realized by the outputter.

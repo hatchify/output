@@ -6,7 +6,6 @@ import (
 )
 
 // These are the different logging levels.
-// All except SuccessLevel are taken from logrus.
 const (
 	// PanicLevel level, highest level of severity. Logs and then calls panic with the
 	// message passed to Debug, Info, ...
@@ -19,8 +18,6 @@ const (
 	ErrorLevel
 	// WarnLevel level. Non-critical entries that deserve eyes.
 	WarnLevel
-	// SuccessLevel level. General operational entries but with higher priority than just InfoLevel.
-	SuccessLevel
 	// InfoLevel level. General operational entries about what's going on inside the
 	// application.
 	InfoLevel
@@ -41,8 +38,6 @@ func ParseLevel(lvl string) (Level, error) {
 		return ErrorLevel, nil
 	case "warn", "warning":
 		return WarnLevel, nil
-	case "success":
-		return SuccessLevel, nil
 	case "info":
 		return InfoLevel, nil
 	case "debug":
