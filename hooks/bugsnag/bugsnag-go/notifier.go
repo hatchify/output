@@ -50,10 +50,7 @@ func (notifier *Notifier) Notify(err error, rawData ...interface{}) (e error) {
 	if e := checkForEmptyError(err); e != nil {
 		return e
 	}
-	// Stripping one stackframe to not include this function in the stacktrace
-	// for a manual notification.
-	skipFrames := 1
-	return notifier.NotifySync(errors.New(err, skipFrames), notifier.Config.Synchronous, rawData...)
+	return notifier.NotifySync(err, notifier.Config.Synchronous, rawData...)
 }
 
 // NotifySync sends an error to Bugsnag. A boolean parameter specifies whether
@@ -65,10 +62,7 @@ func (notifier *Notifier) NotifySync(err error, sync bool, rawData ...interface{
 	if e := checkForEmptyError(err); e != nil {
 		return e
 	}
-	// Stripping one stackframe to not include this function in the stacktrace
-	// for a manual notification.
-	skipFrames := 1
-	event, config := newEvent(append(rawData, errors.New(err, skipFrames), sync), notifier)
+	event, config := newEvent(append(rawData, err, sync), notifier)
 
 	// Never block, start throwing away errors if we have too many.
 	e := middleware.Run(event, config, func() error {
