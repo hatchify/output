@@ -8,6 +8,7 @@ import (
 
 type StackCache interface {
 	GetCaller() (runtime.Frame, bool)
+	GetStackFrames() []runtime.Frame
 }
 
 // New creates a new stack cache for effectively traversing runtime callers.
@@ -49,7 +50,7 @@ func (c *stackCache) GetCaller() (runtime.Frame, bool) {
 	c.callerInitOnce.Do(func() {
 		pcs := make([]uintptr, 2)
 		_ = runtime.Callers(0, pcs)
-		c.outputPackageName = getPackageName(runtime.FuncForPC(pcs[1]).Name())
+		c.outputPackageName = GetPackageName(runtime.FuncForPC(pcs[1]).Name())
 
 		// now that we have the cache, we can skip a minimum count of known-stackcache functions
 		c.minimumCallerDepth = c.framesOffset
@@ -61,7 +62,7 @@ func (c *stackCache) GetCaller() (runtime.Frame, bool) {
 	frames := runtime.CallersFrames(pcs[:depth])
 
 	for f, again := frames.Next(); again; f, again = frames.Next() {
-		pkg := getPackageName(f.Function)
+		pkg := GetPackageName(f.Function)
 
 		// If the caller isn't part of the package, we're done
 		if pkg != c.outputPackageName {
@@ -73,9 +74,23 @@ func (c *stackCache) GetCaller() (runtime.Frame, bool) {
 	return runtime.Frame{}, false
 }
 
-// getPackageName reduces a fully qualified function name to the package name
+// GetStackFrames retrieves the full stack until first non-stackcache calling function.
+func (c *stackCache) GetStackFrames() []runtime.Frame {
+	pcs := make([]uintptr, c.maximumCallerDepth)
+	depth := runtime.Callers(c.framesOffset, pcs)
+	frames := runtime.CallersFrames(pcs[:depth])
+	usefulStackFrames := make([]runtime.Frame, 0, depth)
+
+	for f, again := frames.Next(); again; f, again = frames.Next() {
+		usefulStackFrames = append(usefulStackFrames, f)
+	}
+
+	return usefulStackFrames
+}
+
+// GetPackageName reduces a fully qualified function name to the package name
 // This function is from logrus internals.
-func getPackageName(path string) string {
+func GetPackageName(path string) string {
 	for {
 		lastPeriod := strings.LastIndex(path, ".")
 		lastSlash := strings.LastIndex(path, "/")
