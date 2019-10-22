@@ -89,7 +89,7 @@ func (out *outputter) initOnce() {
 // based on the environment setup.
 func (out *outputter) addDefaultHooks() {
 	out.logger.AddHook(debugHook.NewHook(&debugHook.HookOptions{
-		FramesOffset: 11,
+		FramesOffset: 10,
 	}))
 	if isTrue(os.Getenv("OUTPUT_BLOB_ENABLED")) {
 		out.logger.AddHook(blobHook.NewHook(nil))

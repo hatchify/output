@@ -12,7 +12,7 @@ func TestFnName(t *testing.T) {
 }
 
 func TestCallerName(t *testing.T) {
-	instanceCallerName := NewOutputter(nil, nil).CallerName()
+	instanceCallerName := NewOutputter(nil, nil).(OutputterConfigurator).CallerName()
 	if instanceCallerName != "TestCallerName" {
 		t.Fail()
 	}
