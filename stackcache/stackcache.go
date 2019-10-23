@@ -7,82 +7,102 @@ import (
 )
 
 type StackCache interface {
-	GetCaller() (runtime.Frame, bool)
+	GetCaller() runtime.Frame
 	GetStackFrames() []runtime.Frame
 }
 
-// New creates a new stack cache for effectively traversing runtime callers.
-//
-// framesOffset param allows to have flexibility of stack trace parsing,
-// by offsetting PC of the logging package entrypoint.
-//
-// Rule of thumb: the more "wrapped" the logging function is, the higher PC should be.
-// Default for output.Outputter: 11.
-// For a default outputter on package level: 12 (+1 for package-level wrappers).
-// For outputter.WithFn() helper:
-func New(framesOffset int) StackCache {
+// New creates a new stack cache for effectively traversing runtime frame stack.
+// The traverser will start at pcOffset and move until not exited from internal
+// packages of the output library.
+func New(pcOffset int, breakpointPackage string) StackCache {
 	return &stackCache{
-		framesOffset: framesOffset,
-
-		minimumCallerDepth: 1,
+		minimumCallerDepth: pcOffset,
 		maximumCallerDepth: 25,
+		breakpointPackage:  breakpointPackage,
 	}
 }
 
 type stackCache struct {
-	// qualified package name, cached at first use
-	outputPackageName string
+	// breakpointPackage is a package name that stack traverser will seek,
+	// so it could ignore frames upon finding the first frame after that package.
+	breakpointPackage string
 
-	// framesOffset sets pc offset in stack frames
-	framesOffset int
-	// Used for caller information initialisation
-	callerInitOnce sync.Once
-	// start at the bottom of the stack before the package-name cache is primed
+	offsetOnce         sync.Once
+	offsetIsSet        bool
 	minimumCallerDepth int
-	// limit caller depth scanning to avoid failing in weird configurations
 	maximumCallerDepth int
 }
 
-// GetCaller retrieves the name of the first non-stackcache calling function.
-// This function is from stackcache internals.
-func (c *stackCache) GetCaller() (runtime.Frame, bool) {
-	// cache this package's fully-qualified name
-	c.callerInitOnce.Do(func() {
-		pcs := make([]uintptr, 2)
-		_ = runtime.Callers(0, pcs)
-		c.outputPackageName = GetPackageName(runtime.FuncForPC(pcs[1]).Name())
+// pkgNameTesting is the package of testing.tRunner, in case if
+// the top-most package that calls output library is a default test runner.
+const pkgNameTesting = "testing"
 
-		// now that we have the cache, we can skip a minimum count of known-stackcache functions
-		c.minimumCallerDepth = c.framesOffset
-	})
-
-	// Restrict the lookback frames to avoid runaway lookups
+// GetCaller retrieves the name of the first function from a non-internal package.
+// That would be our caller.
+func (c *stackCache) GetCaller() runtime.Frame {
 	pcs := make([]uintptr, c.maximumCallerDepth)
 	depth := runtime.Callers(c.minimumCallerDepth, pcs)
 	frames := runtime.CallersFrames(pcs[:depth])
 
+	var offset int
+	var latestFrame runtime.Frame
 	for f, again := frames.Next(); again; f, again = frames.Next() {
 		pkg := GetPackageName(f.Function)
 
-		// If the caller isn't part of the package, we're done
-		if pkg != c.outputPackageName {
-			return f, true
+		if !c.offsetIsSet {
+			if pkg == c.breakpointPackage {
+				c.offsetOnce.Do(func() {
+					c.minimumCallerDepth += offset
+					c.offsetIsSet = true
+				})
+			}
+		} else if pkg != c.breakpointPackage {
+			if pkg == pkgNameTesting {
+				break
+			}
+			latestFrame = f
+			break
 		}
+
+		latestFrame = f
+		offset++
 	}
 
-	// if we got here, we failed to find the caller's context
-	return runtime.Frame{}, false
+	return latestFrame
 }
 
-// GetStackFrames retrieves the full stack until first non-stackcache calling function.
+// GetStackFrames retrieves the full stack since first non-internal package.
 func (c *stackCache) GetStackFrames() []runtime.Frame {
 	pcs := make([]uintptr, c.maximumCallerDepth)
-	depth := runtime.Callers(c.framesOffset, pcs)
+	depth := runtime.Callers(c.minimumCallerDepth, pcs)
 	frames := runtime.CallersFrames(pcs[:depth])
 	usefulStackFrames := make([]runtime.Frame, 0, depth)
 
+	var offset int
+	var latestFrame runtime.Frame
+	var latestPkg string
 	for f, again := frames.Next(); again; f, again = frames.Next() {
-		usefulStackFrames = append(usefulStackFrames, f)
+		pkg := GetPackageName(f.Function)
+
+		if !c.offsetIsSet {
+			if pkg == c.breakpointPackage {
+				c.offsetOnce.Do(func() {
+					c.minimumCallerDepth += offset
+					c.offsetIsSet = true
+				})
+			}
+		} else if pkg != c.breakpointPackage {
+			if pkg == pkgNameTesting && latestPkg == c.breakpointPackage {
+				usefulStackFrames = append(usefulStackFrames, latestFrame)
+			}
+			usefulStackFrames = append(usefulStackFrames, f)
+			latestPkg = pkg
+			continue
+		}
+
+		latestFrame = f
+		latestPkg = pkg
+		offset++
 	}
 
 	return usefulStackFrames

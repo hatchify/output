@@ -13,7 +13,6 @@ import (
 type HookOptions struct {
 	// Levels enables this hook for all listed levels.
 	Levels       []logrus.Level
-	FramesOffset int
 
 	Env               string
 	AppVersion        string
@@ -33,9 +32,6 @@ func checkHookOptions(opt *HookOptions) *HookOptions {
 			logrus.ErrorLevel,
 			logrus.WarnLevel,
 		}
-	}
-	if opt.FramesOffset == 0 {
-		opt.FramesOffset = 9
 	}
 	if len(opt.Env) == 0 {
 		opt.Env = os.Getenv("OUTPUT_ENV")
@@ -73,7 +69,7 @@ func NewHook(opt *HookOptions) logrus.Hook {
 	internalLogger.SetLevel(logrus.ErrorLevel)
 	return &hook{
 		opt:   opt,
-		stack: stackcache.New(opt.FramesOffset),
+		stack: stackcache.New(6, "github.com/hatchify/output"),
 		notifier: bugsnag.New(bugsnag.Configuration{
 			APIKey:              opt.BugsnagAPIKey,
 			ReleaseStage:        opt.Env,

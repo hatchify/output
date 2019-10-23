@@ -71,16 +71,12 @@ func (l *Logger) outWithPrefix() Outputter {
 // addDefaultHooks initializes default hooks and additional hooks
 // based on the environment setup.
 func (l *Logger) addDefaultHooks() {
-	l.out.AddHook(debugHook.NewHook(&debugHook.HookOptions{
-		FramesOffset: 11,
-	}))
+	l.out.AddHook(debugHook.NewHook(nil))
 	if isTrue(os.Getenv("OUTPUT_BLOB_ENABLED")) {
 		l.out.AddHook(blobHook.NewHook(nil))
 	}
 	if isTrue(os.Getenv("OUTPUT_BUGSNAG_ENABLED")) {
-		l.out.AddHook(bugsnagHook.NewHook(&bugsnagHook.HookOptions{
-			FramesOffset: 11,
-		}))
+		l.out.AddHook(bugsnagHook.NewHook(nil))
 	}
 }
 

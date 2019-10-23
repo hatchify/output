@@ -33,7 +33,7 @@ func NewOutputter(wc io.Writer, formatter Formatter, hooks ...Hook) Outputter {
 
 		wc:       wc,
 		mux:      new(sync.Mutex),
-		stack:    stackcache.New(3),
+		stack:    stackcache.New(1, "github.com/hatchify/output"),
 		initDone: true,
 	}
 	out.entry = out.logger.WithContext(context.Background())
@@ -50,7 +50,6 @@ type outputter struct {
 	mux         *sync.Mutex
 	wc          io.Writer
 	stack       stackcache.StackCache
-	stackOffset int
 
 	init     sync.Once
 	initDone bool
@@ -75,10 +74,7 @@ func (out *outputter) initOnce() {
 			ExitFunc:  closer.Exit,
 		}
 		out.entry = out.logger.WithContext(context.Background())
-		if out.stackOffset == 0 {
-			out.stackOffset = 4
-		}
-		out.stack = stackcache.New(out.stackOffset)
+		out.stack = stackcache.New(1, "github.com/hatchify/output")
 		out.addDefaultHooks()
 		out.mux = new(sync.Mutex)
 		out.initDone = true
@@ -88,16 +84,12 @@ func (out *outputter) initOnce() {
 // addDefaultHooks initializes default hooks and additional hooks
 // based on the environment setup.
 func (out *outputter) addDefaultHooks() {
-	out.logger.AddHook(debugHook.NewHook(&debugHook.HookOptions{
-		FramesOffset: 10,
-	}))
+	out.logger.AddHook(debugHook.NewHook(nil))
 	if isTrue(os.Getenv("OUTPUT_BLOB_ENABLED")) {
 		out.logger.AddHook(blobHook.NewHook(nil))
 	}
 	if isTrue(os.Getenv("OUTPUT_BUGSNAG_ENABLED")) {
-		out.logger.AddHook(bugsnagHook.NewHook(&bugsnagHook.HookOptions{
-			FramesOffset: 10,
-		}))
+		out.logger.AddHook(bugsnagHook.NewHook(nil))
 	}
 }
 
@@ -356,10 +348,7 @@ func (out *outputter) Close() (err error) {
 // CallerName returns caller function name.
 func (out *outputter) CallerName() string {
 	out.initOnce()
-	caller, ok := out.stack.GetCaller()
-	if !ok {
-		return ""
-	}
+	caller := out.stack.GetCaller()
 	parts := strings.Split(caller.Function, "/")
 	nameParts := strings.Split(parts[len(parts)-1], ".")
 	return nameParts[len(nameParts)-1]
@@ -377,7 +366,6 @@ func isTrue(v string) bool {
 func (out *outputter) copy() *outputter {
 	return &outputter{
 		wc:          out.wc,
-		stackOffset: out.stackOffset,
 		logger:      out.logger,
 		stack:       out.stack,
 		mux:         out.mux,

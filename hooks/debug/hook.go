@@ -16,13 +16,6 @@ type HookOptions struct {
 	AppVersion string
 	// Levels enables this hook for all listed levels.
 	Levels []logrus.Level
-	// FramesOffset allows to have flexibility of stack trace parsing,
-	// by offsetting PC of the logging package entrypoint.
-	//
-	// Rule of thumb: the more "wrapped" the logging function is, the higher PC should be.
-	// Default for output.Outputter: 11.
-	// For a default outputter on package level: 12 (+1 for package-level wrappers).
-	FramesOffset int
 	// PathSegmentsLimit allows to trim amount of source code file path segments.
 	// Untrimmed: /Users/xlab/Documents/dev/go/src/github.com/hatchify/output/default_test.go
 	// Trimmed (3): hatchify/output/default_test.go
@@ -42,9 +35,6 @@ func checkHookOptions(opt *HookOptions) *HookOptions {
 			logrus.TraceLevel,
 		}
 	}
-	if opt.FramesOffset == 0 {
-		opt.FramesOffset = 11
-	}
 	if opt.PathSegmentsLimit == 0 {
 		opt.PathSegmentsLimit = 3
 	}
@@ -58,7 +48,7 @@ func NewHook(opt *HookOptions) logrus.Hook {
 
 	return &hook{
 		opt:   opt,
-		stack: stackcache.New(opt.FramesOffset),
+		stack: stackcache.New(6, "github.com/hatchify/output"),
 	}
 }
 
@@ -72,11 +62,8 @@ func (h *hook) Levels() []logrus.Level {
 }
 
 func (h *hook) Fire(e *logrus.Entry) error {
-	caller, ok := h.stack.GetCaller()
-	if !ok {
-		// no caller info
-		return nil
-	}
+	caller := h.stack.GetCaller()
+
 	if len(caller.Function) > 0 {
 		parts := strings.Split(caller.Function, "/")
 		nameParts := strings.Split(parts[len(parts)-1], ".")
@@ -84,6 +71,7 @@ func (h *hook) Fire(e *logrus.Entry) error {
 	}
 	callerFile := limitPath(caller.File, h.opt.PathSegmentsLimit)
 	e.Data["src"] = fmt.Sprintf("%s:%d", callerFile, caller.Line)
+
 	if len(h.opt.AppVersion) > 0 {
 		e.Data["ver"] = h.opt.AppVersion
 	}
@@ -95,6 +83,7 @@ func limitPath(path string, n int) string {
 	if n <= 0 {
 		return path
 	}
+
 	pathParts := strings.Split(path, string(filepath.Separator))
 	if len(pathParts) > n {
 		pathParts = pathParts[len(pathParts)-n:]
