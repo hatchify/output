@@ -6,7 +6,7 @@ import (
 	"sync"
 
 	blobHook "github.com/hatchify/output/hooks/blob"
-	bugsnagHook "github.com/hatchify/output/hooks/bugsnag"
+	bugsnagHook "github.com/hatchify/output-bugsnag/hooks/bugsnag"
 	debugHook "github.com/hatchify/output/hooks/debug"
 )
 
