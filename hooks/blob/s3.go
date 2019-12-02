@@ -27,10 +27,13 @@ func NewS3Remote(accoutID, secretKey, endpoint, region, bucket string) (S3Remote
 	if err != nil {
 		return nil, err
 	}
-	return &s3Remote{
+
+	remote := &s3Remote{
 		bucket: bucket,
 		cli:    s3.New(sess),
-	}, nil
+	}
+
+	return remote, nil
 }
 
 type S3Spec struct {
@@ -57,6 +60,7 @@ func (s *s3Remote) CheckAccess(prefix string) error {
 		ContentType: aws.String("text/plain"),
 		Key:         aws.String(path.Join(prefix, "_touch")),
 	})
+
 	return err
 }
 
@@ -70,11 +74,13 @@ func (s *s3Remote) PutObject(key string, r io.Reader, meta map[string]string) (*
 	if err != nil {
 		return nil, err
 	}
+
 	spec := &S3Spec{
 		Key:     key,
 		ETag:    aws.StringValue(obj.ETag),
 		Version: aws.StringValue(obj.VersionId),
 		Meta:    meta,
 	}
+
 	return spec, err
 }

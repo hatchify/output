@@ -44,8 +44,11 @@ func (c *stackCache) GetCaller() runtime.Frame {
 	depth := runtime.Callers(c.minimumCallerDepth, pcs)
 	frames := runtime.CallersFrames(pcs[:depth])
 
-	var offset int
-	var latestFrame runtime.Frame
+	var (
+		offset      int
+		latestFrame runtime.Frame
+	)
+
 	for f, again := frames.Next(); again; f, again = frames.Next() {
 		pkg := GetPackageName(f.Function)
 
@@ -78,9 +81,12 @@ func (c *stackCache) GetStackFrames() []runtime.Frame {
 	frames := runtime.CallersFrames(pcs[:depth])
 	usefulStackFrames := make([]runtime.Frame, 0, depth)
 
-	var offset int
-	var latestFrame runtime.Frame
-	var latestPkg string
+	var (
+		offset      int
+		latestFrame runtime.Frame
+		latestPkg   string
+	)
+
 	for f, again := frames.Next(); again; f, again = frames.Next() {
 		pkg := GetPackageName(f.Function)
 
@@ -114,11 +120,13 @@ func GetPackageName(path string) string {
 	for {
 		lastPeriod := strings.LastIndex(path, ".")
 		lastSlash := strings.LastIndex(path, "/")
+
 		if lastPeriod > lastSlash {
 			path = path[:lastPeriod]
 		} else {
 			break
 		}
 	}
+
 	return path
 }

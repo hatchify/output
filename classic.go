@@ -5,8 +5,8 @@ import (
 	"os"
 	"sync"
 
-	blobHook "github.com/hatchify/output/hooks/blob"
 	bugsnagHook "github.com/hatchify/output-bugsnag/hooks/bugsnag"
+	blobHook "github.com/hatchify/output/hooks/blob"
 	debugHook "github.com/hatchify/output/hooks/debug"
 )
 
@@ -24,6 +24,7 @@ func NewWrapperWithOutputter(o Outputter, prefix string) *Wrapper {
 		Outputter: o.WithField("prefix", prefix),
 		prefix:    prefix,
 	}
+
 	return w
 }
 
@@ -48,6 +49,7 @@ func New(wc io.WriteCloser, prefixFn PrefixFunc) *Logger {
 		prefixFn: prefixFn,
 	}
 	l.addDefaultHooks()
+
 	return l
 }
 
@@ -65,6 +67,7 @@ func (l *Logger) outWithPrefix() Outputter {
 	if l.prefixFn != nil {
 		return l.out.WithField("prefix", l.prefixFn())
 	}
+
 	return l.out
 }
 
@@ -72,9 +75,11 @@ func (l *Logger) outWithPrefix() Outputter {
 // based on the environment setup.
 func (l *Logger) addDefaultHooks() {
 	l.out.AddHook(debugHook.NewHook(nil))
+
 	if isTrue(os.Getenv("OUTPUT_BLOB_ENABLED")) {
 		l.out.AddHook(blobHook.NewHook(nil))
 	}
+
 	if isTrue(os.Getenv("OUTPUT_BUGSNAG_ENABLED")) {
 		l.out.AddHook(bugsnagHook.NewHook(nil))
 	}
@@ -111,9 +116,12 @@ func (l *Logger) Error(format string, args ...interface{}) {
 func (l *Logger) Close() (err error) {
 	l.mux.Lock()
 	defer l.mux.Unlock()
+
 	if l.closed {
 		return
 	}
+
 	l.closed = true
+
 	return l.wc.Close()
 }

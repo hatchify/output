@@ -4,6 +4,7 @@ func WithFn(fields ...Fields) Fields {
 	if len(fields) > 0 && fields[0] != nil {
 		result := copyFields(fields[0])
 		result["fn"] = defaultOut.CallerName()
+
 		return result
 	}
 

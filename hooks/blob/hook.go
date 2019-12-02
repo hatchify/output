@@ -95,9 +95,11 @@ func NewHook(opt *HookOptions) logrus.Hook {
 
 	if err != nil {
 		out.WithError(err).Warning("failed to init S3 session")
+
 		s3Remote = nil
 	} else if err := s3Remote.CheckAccess(opt.Env); err != nil {
 		out.WithError(err).Warning("failed to verify S3 remote access")
+
 		s3Remote = nil
 	}
 
@@ -133,6 +135,7 @@ func (h *hook) Fire(e *logrus.Entry) error {
 	if h.s3Remote == nil {
 		logrus.Warning("blob provided but S3 remote is disabled")
 		delete(e.Data, "blob")
+
 		return nil
 	} else if enabled := h.opt.BlobEnabledEnv[h.opt.Env]; !enabled {
 		logrus.Infof("blob provided but uploading is disabled in %s", h.opt.Env)
@@ -151,6 +154,7 @@ func (h *hook) Fire(e *logrus.Entry) error {
 		delete(e.Data, "blob")
 		return nil
 	}
+
 	blobID := NewBlobID()
 
 	if len(h.opt.BlobStoreURL) > 0 {
@@ -167,6 +171,7 @@ func (h *hook) Fire(e *logrus.Entry) error {
 func (h *hook) blobUpload(blobID string, payload []byte) {
 	objectKey := filepath.Join(h.opt.Env, blobID)
 	_, err := h.s3Remote.PutObject(objectKey, bytes.NewReader(payload), nil)
+
 	if err != nil {
 		logrus.WithError(err).WithFields(logrus.Fields{
 			"bucket": h.opt.BlobStoreBucket,

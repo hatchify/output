@@ -26,15 +26,18 @@ func checkHookOptions(opt *HookOptions) *HookOptions {
 	if opt == nil {
 		opt = &HookOptions{}
 	}
+
 	if len(opt.AppVersion) == 0 {
 		opt.AppVersion = os.Getenv("OUTPUT_APP_VERSION")
 	}
+
 	if len(opt.Levels) == 0 {
 		opt.Levels = []logrus.Level{
 			logrus.DebugLevel,
 			logrus.TraceLevel,
 		}
 	}
+
 	if opt.PathSegmentsLimit == 0 {
 		opt.PathSegmentsLimit = 3
 	}
@@ -69,6 +72,7 @@ func (h *hook) Fire(e *logrus.Entry) error {
 		nameParts := strings.Split(parts[len(parts)-1], ".")
 		e.Data["fn"] = nameParts[len(nameParts)-1]
 	}
+
 	callerFile := limitPath(caller.File, h.opt.PathSegmentsLimit)
 	e.Data["src"] = fmt.Sprintf("%s:%d", callerFile, caller.Line)
 

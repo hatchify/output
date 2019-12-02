@@ -30,6 +30,7 @@ func (r *lockedSource) Int63() (n int64) {
 	r.lk.Lock()
 	n = r.src.Int63()
 	r.lk.Unlock()
+
 	return
 }
 

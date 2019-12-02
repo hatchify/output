@@ -47,5 +47,6 @@ func ParseLevel(levelName string) (level Level, err error) {
 	default:
 		err = fmt.Errorf("not a valid output Level: %s", levelName)
 	}
+
 	return
 }

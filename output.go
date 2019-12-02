@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	blobHook "github.com/hatchify/output/hooks/blob"
 	bugsnagHook "github.com/hatchify/output-bugsnag/hooks/bugsnag"
+	blobHook "github.com/hatchify/output/hooks/blob"
 	debugHook "github.com/hatchify/output/hooks/debug"
 
 	"github.com/hatchify/output/stackcache"
@@ -22,6 +22,7 @@ func NewOutputter(wc io.Writer, formatter Formatter, hooks ...Hook) Outputter {
 	if formatter == nil {
 		formatter = new(TextFormatter)
 	}
+
 	out := &outputter{
 		logger: &logrus.Logger{
 			Out:       wc,
@@ -37,9 +38,11 @@ func NewOutputter(wc io.Writer, formatter Formatter, hooks ...Hook) Outputter {
 		initDone: true,
 	}
 	out.entry = out.logger.WithContext(context.Background())
+
 	for _, h := range hooks {
 		out.AddHook(h)
 	}
+
 	return out
 }
 
@@ -47,9 +50,9 @@ type outputter struct {
 	logger *logrus.Logger
 	entry  *logrus.Entry
 
-	mux         *sync.Mutex
-	wc          io.Writer
-	stack       stackcache.StackCache
+	mux   *sync.Mutex
+	wc    io.Writer
+	stack stackcache.StackCache
 
 	init     sync.Once
 	initDone bool
@@ -85,9 +88,11 @@ func (out *outputter) initOnce() {
 // based on the environment setup.
 func (out *outputter) addDefaultHooks() {
 	out.logger.AddHook(debugHook.NewHook(nil))
+
 	if isTrue(os.Getenv("OUTPUT_BLOB_ENABLED")) {
 		out.logger.AddHook(blobHook.NewHook(nil))
 	}
+
 	if isTrue(os.Getenv("OUTPUT_BUGSNAG_ENABLED")) {
 		out.logger.AddHook(bugsnagHook.NewHook(nil))
 	}
@@ -98,8 +103,10 @@ func (out *outputter) addDefaultHooks() {
 // If you want multiple fields, use `WithFields`.
 func (out *outputter) WithField(key string, value interface{}) Outputter {
 	out.initOnce()
+
 	outCopy := out.copy()
 	outCopy.entry = out.entry.WithField(key, value)
+
 	return outCopy
 }
 
@@ -109,6 +116,7 @@ func (out *outputter) WithFields(fields Fields) Outputter {
 	out.initOnce()
 	outCopy := out.copy()
 	outCopy.entry = out.entry.WithFields(fields)
+
 	return outCopy
 }
 
@@ -118,6 +126,7 @@ func (out *outputter) WithError(err error) Outputter {
 	out.initOnce()
 	outCopy := out.copy()
 	outCopy.entry = out.entry.WithError(err)
+
 	return outCopy
 }
 
@@ -126,6 +135,7 @@ func (out *outputter) WithContext(ctx context.Context) Outputter {
 	out.initOnce()
 	outCopy := out.copy()
 	outCopy.entry = out.entry.WithContext(ctx)
+
 	return outCopy
 }
 
@@ -134,6 +144,7 @@ func (out *outputter) WithTime(t time.Time) Outputter {
 	out.initOnce()
 	outCopy := out.copy()
 	outCopy.entry = out.entry.WithTime(t)
+
 	return outCopy
 }
 
@@ -333,15 +344,18 @@ func (out *outputter) Close() (err error) {
 	// bail out if already closed
 	out.mux.Lock()
 	defer out.mux.Unlock()
+
 	if out.closed {
 		return
 	}
+
 	out.closed = true
 
 	// try to close only WriteClosers
 	if outCloser, ok := out.wc.(io.WriteCloser); ok {
 		return outCloser.Close()
 	}
+
 	return
 }
 
@@ -351,6 +365,7 @@ func (out *outputter) CallerName() string {
 	caller := out.stack.GetCaller()
 	parts := strings.Split(caller.Function, "/")
 	nameParts := strings.Split(parts[len(parts)-1], ".")
+
 	return nameParts[len(nameParts)-1]
 }
 
@@ -359,17 +374,18 @@ func isTrue(v string) bool {
 	case "1", "true", "y":
 		return true
 	}
+
 	return false
 }
 
 // copy allows to construct an outputter copy with new entry.
 func (out *outputter) copy() *outputter {
 	return &outputter{
-		wc:          out.wc,
-		logger:      out.logger,
-		stack:       out.stack,
-		mux:         out.mux,
-		initDone:    out.initDone,
-		closed:      out.closed,
+		wc:       out.wc,
+		logger:   out.logger,
+		stack:    out.stack,
+		mux:      out.mux,
+		initDone: out.initDone,
+		closed:   out.closed,
 	}
 }
