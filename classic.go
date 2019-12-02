@@ -19,13 +19,12 @@ func NewWrapper(prefix string) *Wrapper {
 // NewWrapperWithOutputter will return a new wrapper with a custom Logger.
 // This is for compatibility with "classic" output package.
 // Please use Outputter and its WithFields method for any new code.
-func NewWrapperWithOutputter(o Outputter, prefix string) *Wrapper {
-	w := &Wrapper{
-		Outputter: o.WithField("prefix", prefix),
-		prefix:    prefix,
-	}
+func NewWrapperWithOutputter(o Outputter, prefix string) (w *Wrapper) {
+	w = new(Wrapper)
+	w.Outputter = o.WithField("prefix", prefix)
+	w.prefix = prefix
 
-	return w
+	return
 }
 
 // Wrapper will wrap an output Entry with prefix.
@@ -40,17 +39,18 @@ type Wrapper struct {
 type PrefixFunc func() string
 
 // New will return a classic output logger.
-func New(wc io.WriteCloser, prefixFn PrefixFunc) *Logger {
+func New(wc io.WriteCloser, prefixFn PrefixFunc) (l *Logger) {
 	outForClassic := NewOutputter(wc, new(TextFormatter))
-	l := &Logger{
-		out:      outForClassic.WithField("logger", "classic").(*outputter),
-		wc:       wc,
-		mux:      new(sync.Mutex),
-		prefixFn: prefixFn,
-	}
+
+	l = new(Logger)
+	l.out = outForClassic.WithField("logger", "classic").(*outputter)
+	l.wc = wc
+	l.mux = new(sync.Mutex)
+	l.prefixFn = prefixFn
+
 	l.addDefaultHooks()
 
-	return l
+	return
 }
 
 // Logger is an instance of ClassicOutputter, it manages an output stream.

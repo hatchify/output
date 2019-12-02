@@ -68,6 +68,7 @@ func (out *outputter) initOnce() {
 		if out.wc == nil {
 			out.wc = os.Stderr
 		}
+
 		// otherwise init output with conservative defaults
 		out.logger = &logrus.Logger{
 			Out:       out.wc,
@@ -76,6 +77,7 @@ func (out *outputter) initOnce() {
 			Level:     DebugLevel,
 			ExitFunc:  closer.Exit,
 		}
+
 		out.entry = out.logger.WithContext(context.Background())
 		out.stack = stackcache.New(1, "github.com/hatchify/output")
 		out.addDefaultHooks()
