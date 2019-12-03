@@ -24,7 +24,8 @@ deserunt mollit anim id est laborum.`)
 		Env: "test",
 	}
 
-	out := output.NewOutputter(os.Stderr, new(output.TextFormatter), blobHook.NewHook(opts))
+	hook, _ := blobHook.NewHook(opts)
+	out := output.NewOutputter(os.Stderr, new(output.TextFormatter), hook)
 	ts := time.Now()
 
 	out.WithField("blob", testBlob).Infoln("test is running, trying to submit blob")
