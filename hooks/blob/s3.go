@@ -18,7 +18,7 @@ type S3Remote interface {
 	PutObject(key string, r io.Reader, meta map[string]string) (*S3Spec, error)
 }
 
-func NewS3Remote(accoutID, secretKey, endpoint, region, bucket string) (S3Remote, error) {
+func NewS3Remote(accoutID, secretKey, endpoint, region, bucket string) (s3Client S3Remote, err error) {
 	sess, err := session.NewSession(&aws.Config{
 		Credentials: credentials.NewStaticCredentials(accoutID, secretKey, ""),
 		Endpoint:    aws.String(endpoint),
@@ -28,12 +28,12 @@ func NewS3Remote(accoutID, secretKey, endpoint, region, bucket string) (S3Remote
 		return nil, err
 	}
 
-	remote := &s3Remote{
+	s3Client = &s3Remote{
 		bucket: bucket,
 		cli:    s3.New(sess),
 	}
 
-	return remote, nil
+	return s3Client, nil
 }
 
 type S3Spec struct {

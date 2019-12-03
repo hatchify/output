@@ -92,7 +92,8 @@ func (out *outputter) addDefaultHooks() {
 	out.logger.AddHook(debugHook.NewHook(nil))
 
 	if isTrue(os.Getenv("OUTPUT_BLOB_ENABLED")) {
-		out.logger.AddHook(blobHook.NewHook(nil))
+		hook, _ := blobHook.NewHook(nil)
+		out.logger.AddHook(hook)
 	}
 
 	if isTrue(os.Getenv("OUTPUT_BUGSNAG_ENABLED")) {
