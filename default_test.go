@@ -1,6 +1,12 @@
 package output
 
-import "testing"
+import (
+	"os"
+	"testing"
+	"time"
+
+	debugHook "github.com/hatchify/output/hooks/debug"
+)
 
 func TestAll(t *testing.T) {
 	Print("This is an example basic message")
@@ -8,6 +14,9 @@ func TestAll(t *testing.T) {
 	Warning("This is an example warning message")
 	Error("This is an example error message")
 	Debug("This is an example debug message")
+	NewOutputter(os.Stderr, nil, debugHook.NewHook(nil)).
+		Debug("Debug message from non-default outputter")
+	time.Sleep(time.Second)
 }
 
 func ExamplePrint() {
