@@ -5,7 +5,7 @@ install:
 	go install github.com/hatchify/output
 
 lint:
-	golangci-lint run --enable-all
+	golangci-lint run --enable-all -D gomnd
 
 test:
 	go test

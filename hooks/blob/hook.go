@@ -82,39 +82,38 @@ func NewHook(opt *HookOptions) (blobHook logrus.Hook, err error) {
 	var h hook
 	h.opt = checkHookOptions(opt)
 
-	out := logrus.WithFields(logrus.Fields{
-		"account":  opt.BlobStoreAccount,
-		"bucket":   opt.BlobStoreBucket,
-		"endpoint": opt.BlobStoreEndpoint,
-	})
-
-	if h.s3Remote, err = NewS3Remote(
-		opt.BlobStoreAccount,
-		opt.BlobStoreKey,
-		opt.BlobStoreEndpoint,
-		opt.BlobStoreRegion,
-		opt.BlobStoreBucket,
-	); err != nil {
-		out.WithError(err).Warning("failed to init S3 session")
-		return
-	}
-
-	if err = h.s3Remote.CheckAccess(opt.Env); err != nil {
-		out.WithError(err).Warning("failed to verify S3 remote access")
-
-		h.s3Remote = nil
-
+	if err = h.initS3Remote(); err != nil {
 		return
 	}
 
 	blobHook = &h
 
-	return blobHook, nil
+	return
 }
 
 type hook struct {
 	opt      *HookOptions
 	s3Remote S3Remote
+}
+
+func (h *hook) initS3Remote() (err error) {
+	if h.s3Remote, err = NewS3Remote(
+		h.opt.BlobStoreAccount,
+		h.opt.BlobStoreKey,
+		h.opt.BlobStoreEndpoint,
+		h.opt.BlobStoreRegion,
+		h.opt.BlobStoreBucket,
+	); err != nil {
+		err = fmt.Errorf("failed to init S3 session: %+v", err)
+		return
+	}
+
+	if err = h.s3Remote.CheckAccess(h.opt.Env); err != nil {
+		err = fmt.Errorf("failed to verify S3 remote access: %+v", err)
+		return
+	}
+
+	return
 }
 
 func (h *hook) Levels() []logrus.Level {
