@@ -79,7 +79,7 @@ func checkHookOptions(opt *HookOptions) *HookOptions {
 
 // NewHook initializes a new output.Hook using provided params and options.
 func NewHook(opt *HookOptions) (blobHook logrus.Hook, err error) {
-	h := new(hook)
+	var h hook
 	h.opt = checkHookOptions(opt)
 
 	out := logrus.WithFields(logrus.Fields{
@@ -96,19 +96,20 @@ func NewHook(opt *HookOptions) (blobHook logrus.Hook, err error) {
 		opt.BlobStoreBucket,
 	); err != nil {
 		out.WithError(err).Warning("failed to init S3 session")
+		return
+	}
 
-		h.s3Remote = nil
-
-		return h, err
-	} else if err := h.s3Remote.CheckAccess(opt.Env); err != nil {
+	if err = h.s3Remote.CheckAccess(opt.Env); err != nil {
 		out.WithError(err).Warning("failed to verify S3 remote access")
 
 		h.s3Remote = nil
 
-		return h, err
+		return
 	}
 
-	return h, nil
+	blobHook = &h
+
+	return blobHook, nil
 }
 
 type hook struct {
