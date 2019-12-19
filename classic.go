@@ -40,8 +40,11 @@ type PrefixFunc func() string
 
 // New will return a classic output logger.
 func New(wc io.WriteCloser, prefixFn PrefixFunc) (l *Logger) {
-	outForClassic := NewOutputter(wc, new(TextFormatter))
+	formatter := new(TextFormatter)
+	formatter.ForceColors = true
+	formatter.DisableTimestamp = true
 
+	outForClassic := NewOutputter(wc, formatter)
 	l = new(Logger)
 	l.out = outForClassic.WithField("logger", "classic").(*outputter)
 	l.wc = wc
